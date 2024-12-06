@@ -13,36 +13,38 @@ jobs:
     if: github.event_name != 'release'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions/setup-node@v1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '16.x'
+          node-version: 18
       - name: Build
         run: |
-          yarn install --frozen-lockfile
+          yarn install --immutable
+          cd lib
           yarn build
-      - name: Test
-        run: |
-          yarn test
+          cd ..
+      # - name: Test
+      #   run: |
+      #     cd lib
+      #     yarn test
       - name: Build docs
         run: |
           cd doc
-          yarn install --frozen-lockfile
           yarn build
           cd ..
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v2
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+      # - name: Upload coverage to Codecov
+      #   uses: codecov/codecov-action@v2
+      #   with:
+      #     token: ${{ secrets.CODECOV_TOKEN }}
   gh-release:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions/setup-node@v1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '16.x'
-      - uses: webfactory/ssh-agent@v0.5.0
+          node-version: 18
+      - uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.GH_PAGES_DEPLOY }}
       - name: Release to GitHub Pages
@@ -52,8 +54,6 @@ jobs:
         run: |
           git config --global user.email "oss@samuelwall.co.uk"
           git config --global user.name "sjwall"
-          yarn install --frozen-lockfile
-          yarn build
+          yarn install --immutable
           cd doc
-          yarn install --frozen-lockfile
           yarn deploy

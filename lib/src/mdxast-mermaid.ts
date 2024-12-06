@@ -5,10 +5,11 @@
  * license file in the root directory of this source tree.
  */
 
-import { visit, EXIT } from 'unist-util-visit'
+import { visit } from 'unist-util-visit'
 import type { Literal, Parent, Node, Data } from 'unist'
 import type { Parent as MdastParent } from 'mdast'
-import type mermaidAPI from 'mermaid/mermaidAPI'
+import type mermaid from 'mermaid'
+import type { MermaidConfig } from 'mermaid'
 import type { Config } from './config.model'
 import type { JSXElement, JSXExpressionContainer, JSXIdentifier } from 'estree-jsx'
 
@@ -18,7 +19,7 @@ type CodeMermaid = Literal<string> & {
 }
 
 /* istanbul ignore next */
-const renderToSvg = async (id: string, src: string, config: mermaidAPI.Config, url: string = 'https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js'): Promise<string> => {
+const renderToSvg = async (id: string, src: string, config: MermaidConfig, url: string): Promise<string> => {
   const puppeteer = await import('puppeteer')
   let browser = await puppeteer.launch({ args: ["--no-sandbox"] })
   try {
@@ -28,9 +29,9 @@ const renderToSvg = async (id: string, src: string, config: mermaidAPI.Config, u
     )
     return await page.evaluate(
       (diagramId, mermaidDiagram, config) => {
-        (window.mermaid as any).initialize({ startOnLoad: false, ...config })
+        ((window as any).mermaid as typeof mermaid).initialize({ startOnLoad: false, ...config })
         try {
-          return (window.mermaid as any).mermaidAPI.render(diagramId, mermaidDiagram)
+          return ((window as any).mermaid as typeof mermaid).mermaidAPI.render(diagramId, mermaidDiagram)
         } catch (error) {
           return JSON.stringify(error)
         }
@@ -45,7 +46,6 @@ const renderToSvg = async (id: string, src: string, config: mermaidAPI.Config, u
 }
 
 type OutputResult = (Node<Data> | Literal<unknown, Data>)[]
-type OutputFunc = (node: CodeMermaid, index: number | null, parent: Parent<Node<Data>, Data>, config?: Config) => Promise<OutputResult>
 
 const createMermaidNode = (node: CodeMermaid, hName: string, config?: Config): OutputResult => {
   return [{
@@ -60,13 +60,14 @@ const createMermaidNode = (node: CodeMermaid, hName: string, config?: Config): O
   }]
 }
 
-const outputAST: OutputFunc = async (node: CodeMermaid, index: number | null, parent: Parent<Node<Data>, Data>, config?: Config): Promise<OutputResult> => {
+const outputAST = (node: CodeMermaid, index: number | null, parent: Parent<Node<Data>, Data>, config?: Config): OutputResult => {
   return createMermaidNode(node, 'mermaid', config)
 }
 
 /* istanbul ignore next */
-const outputSVG: OutputFunc = async (node: CodeMermaid, index: number | null, parent: Parent<Node<Data>, Data>, config?: Config): Promise<OutputResult> => {
-  const value = await renderToSvg(`mermaid-svg-${index}`, node.value, config && config.mermaid ? config.mermaid : {})
+const outputSVG = async (node: CodeMermaid, index: number | null, parent: Parent<Node<Data>, Data>, config?: Config): Promise<OutputResult> => {
+  const value = await renderToSvg(`mermaid-svg-${index}`, node.value, config && config.mermaid ? config.mermaid : {},
+    config?.svgMermaidSrc ?? 'https://cdn.jsdelivr.net/npm/mermaid@9.3.0/dist/mermaid.min.js')
   const { fromHtml } = await import('hast-util-from-html')
   const { toEstree } = await import('hast-util-to-estree')
   const { toJs, jsx } = await import('estree-util-to-js')
@@ -119,6 +120,14 @@ const outputSVG: OutputFunc = async (node: CodeMermaid, index: number | null, pa
   return (tree.children[0] as MdastParent).children
 }
 
+const findInstances = (ast: any) => {
+  const instances: [Literal, number, Parent<Node<Data> | Literal, Data>][] = []
+  visit(ast, { type: 'code', lang: 'mermaid' }, (node: CodeMermaid, index, parent) => {
+    instances.push([node, index!, parent as Parent<Node<Data>, Data>])
+  })
+  return instances
+}
+
 /**
  * mdx-mermaid plugin.
  *
@@ -126,27 +135,37 @@ const outputSVG: OutputFunc = async (node: CodeMermaid, index: number | null, pa
  * @returns Function to transform mdxast.
  */
 export default function plugin(config?: Config) {
-  // Determine which format to output in
-  let output: OutputFunc = outputAST
-
   /* istanbul ignore next */
   if (config?.output === 'svg') {
-    output = outputSVG
+    return async function transformer(ast: any): Promise<Parent> {
+      // Find all the mermaid diagram code blocks. i.e. ```mermaid
+      let instances = findInstances(ast);
+
+      // Replace each Mermaid code block with the Mermaid component
+      // Here we iterate over the instances and replace them with the SVG
+      // and run findInstances again to get the next set instances. We do this
+      // because the replacement process can change the AST and cause
+      // the indexes to be incorrect.
+      while (instances.length > 0) {
+        const [node, index, parent] = instances[0];
+        const result = await outputSVG(node as any, index, parent, config);
+        Array.prototype.splice.apply(parent.children, [index, 1, ...result]);
+        instances = findInstances(ast);
+      }
+      return ast
+    }
   }
 
-  return async function transformer(ast: any): Promise<Parent> {
+  return function transformer(ast: any): Parent {
     // Find all the mermaid diagram code blocks. i.e. ```mermaid
-    const instances: [Literal, number, Parent<Node<Data> | Literal, Data>][] = []
-    visit(ast, { type: 'code', lang: 'mermaid' }, (node: CodeMermaid, index, parent) => {
-      instances.push([node, index!, parent as Parent<Node<Data>, Data>])
-    })
+    const instances = findInstances(ast)
 
     // Replace each Mermaid code block with the Mermaid component
     for (let i = 0; i < instances.length; i++) {
       const [node, index, parent] = instances[i]
       /* istanbul ignore next */
-      const passConfig = i == 0 || config?.output === 'svg' ? config : undefined
-      const result = await output(node as any, index, parent, passConfig);
+      const passConfig = i == 0 ? config : undefined
+      const result = outputAST(node as any, index, parent, passConfig);
       Array.prototype.splice.apply(parent.children, [index, 1, ...result])
     }
     return ast

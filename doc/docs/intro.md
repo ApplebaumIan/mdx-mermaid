@@ -4,59 +4,48 @@ sidebar_position: 1
 
 # Tutorial
 
-Setup mdx-mermaid in Docusaurus.
+Setup mdx-mermaid.
 
 ## Installing
 
 Use your preferred package manager to install.
 
 ```shell title=NPM
-npm i mdx-mermaid@^1.3.0 mermaid
+npm i mdx-mermaid mermaid
 ```
 
 ```shell title=Yarn
-yarn add mdx-mermaid@^1.3.0 mermaid
+yarn add mdx-mermaid mermaid
 ```
 
 ```shell title=PNPM
-pnpm add mdx-mermaid@^1.3.0 mermaid
+pnpm add mdx-mermaid mermaid
 ```
 
 :::danger
 
-For Docusaurus and @mdxjs/mdx v1 use version `^1.3.0`
+For Docusaurus use `@docusaurus/theme-mermaid@^2.3.1` and @mdxjs/mdx v1 use version `mdx-mermaid@^1.3.0`
 
 :::
 
 :::info
 
-For @mdxjs/mdx v2 use version `2.0.0-rc2`
+For @mdxjs/mdx v2 use version `mdx-mermaid@^2.0.0`
 
 :::
 
-## Configure in Docusaurus
+## Configure
 
-Import the module and pass it to `remarkPlugins`:
+Configure the plugin:
 
-```js title=docusaurus.config.js
-async function createConfig() {
-  const mdxMermaid = await import('mdx-mermaid')
+```js
+import mdxMermaid from 'mdx-mermaid'
+import {Mermaid} from 'mdx-mermaid/lib/Mermaid'
 
-  return {
-    presets: [
-      [
-        'classic',
-        {
-          docs: {
-            remarkPlugins: [mdxMermaid.default],
-          }
-        }
-      ]
-    ]
-  }
+{
+  remarkPlugins: [[mdxMermaid.default, {output: 'svg'}]],
+  components: {mermaid: Mermaid, Mermaid}
 }
-
-module.exports = createConfig;
 ```
 
 ## Add a Diagram

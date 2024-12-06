@@ -5,8 +5,6 @@ const lightCodeTheme = require('prism-react-renderer/themes/github');
 const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 
 async function createConfig() {
-  const mdxMermaid = await import('mdx-mermaid')
-
   /** @type {import('@docusaurus/types').Config} */
   return {
     title: 'mdx-mermaid',
@@ -19,6 +17,10 @@ async function createConfig() {
     trailingSlash: true,
     organizationName: 'sjwall', // Usually your GitHub org/user name.
     projectName: 'mdx-mermaid', // Usually your repo name.
+    markdown: {
+      mermaid: true,
+    },
+    themes: ['@docusaurus/theme-mermaid'],
 
   presets: [
     [
@@ -26,14 +28,14 @@ async function createConfig() {
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
-          remarkPlugins: [mdxMermaid.default],
           sidebarPath: require.resolve('./sidebars.js'),
           // Please change this to your repo.
           editUrl:
             'https://github.com/sjwall/mdx-mermaid/edit/main/doc',
+          lastVersion: 'current',
           versions: {
             current: {
-              label: '2.0.0-rc4 🚧',
+              label: '2.0.0',
             },
             '1.3.0': {
               label: '>= 1.3.0',

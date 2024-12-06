@@ -15,41 +15,35 @@ Based off the answer [here][inspire] by unknown.
 
 More documentation available [here][documentation]
 
-Use version `^1.3.0` for `@mdxjs/mdx` `v1` and `Docusaurus`.
+Use version `^1.3.0` for `@mdxjs/mdx` `v1`.
 
 Use version `^2.0.0` for `@mdxjs/mdx` `v2`.
 
-## Quick start with Docusaurus
+> **Warning**:
+> [`rehype-mermaidjs`](https://github.com/remcohaszing/rehype-mermaidjs) and
+> [`remark-mermaidjs`](https://github.com/remcohaszing/remark-mermaidjs)
+> may better suit your use case.
+
+## Quick start
 
 Install `mdx-mermaid` and `mermaid`
 
 `mermaid` is a peer dependency so you can specify the version to use
 
 ```bash
-yarn add mdx-mermaid@^v1.3.0 mermaid
+yarn add mdx-mermaid mermaid
 ```
 
-Update `docusaurus.config.js`
+Configure the plugin:
 
 ```js
-async function createConfig() {
-  const mdxMermaid = await import('mdx-mermaid')
+import mdxMermaid from 'mdx-mermaid'
+import {Mermaid} from 'mdx-mermaid/lib/Mermaid'
 
-  return {
-    presets: [
-      [
-        'classic',
-        {
-          docs: {
-            remarkPlugins: [mdxMermaid.default],
-          }
-        }
-      ]
-    ]
-  }
+{
+  remarkPlugins: [[mdxMermaid.default, {output: 'svg'}]],
+  components: {mermaid: Mermaid, Mermaid}
 }
-
-module.exports = createConfig;
 ```
 
 Use code blocks in `.md` or `.mdx` files:
